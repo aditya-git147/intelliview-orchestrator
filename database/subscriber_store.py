@@ -1,66 +1,63 @@
-import sqlite3
 from datetime import datetime
 
-DB_NAME = "/app/data/subscribers.db"
-
-
-def get_connection():
-    return sqlite3.connect(DB_NAME)
+from database.db import SessionLocal
+from sqlalchemy import text
 
 
 def create_table():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS subscribers (
-        webhook_id TEXT PRIMARY KEY,
-        url TEXT NOT NULL,
-        secret_ref TEXT NOT NULL,
-        active BOOLEAN DEFAULT 1,
-        created_at TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
+    with SessionLocal() as db:
+        db.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS subscribers (
+                    webhook_id TEXT PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    secret_ref TEXT NOT NULL,
+                    active BOOLEAN DEFAULT TRUE,
+                    created_at TEXT
+                )
+                """
+            )
+        )
+        db.commit()
 
 
 def add_subscriber(webhook_id, url, secret_ref, active=True):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-    INSERT INTO subscribers 
-    (webhook_id, url, secret_ref, active, created_at)
-    VALUES (?, ?, ?, ?, ?)
-    """,
-        (webhook_id, url, secret_ref, 1 if active else 0, datetime.now().isoformat()),
-    )
-
-    conn.commit()
-    conn.close()
+    with SessionLocal() as db:
+        db.execute(
+            text(
+                """
+                INSERT INTO subscribers
+                (webhook_id, url, secret_ref, active, created_at)
+                VALUES (:webhook_id, :url, :secret_ref, :active, :created_at)
+                """
+            ),
+            {
+                "webhook_id": webhook_id,
+                "url": url,
+                "secret_ref": secret_ref,
+                "active": active,
+                "created_at": datetime.now().isoformat(),
+            },
+        )
+        db.commit()
 
 
 def remove_subscriber(webhook_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM subscribers WHERE webhook_id=?", (webhook_id,))
-
-    conn.commit()
-    conn.close()
+    with SessionLocal() as db:
+        db.execute(
+            text(
+                "DELETE FROM subscribers WHERE webhook_id = :webhook_id"
+            ),
+            {"webhook_id": webhook_id},
+        )
+        db.commit()
 
 
 def list_subscribers():
-    conn = get_connection()
-    cursor = conn.cursor()
+    with SessionLocal() as db:
+        result = db.execute(
+            text("SELECT * FROM subscribers WHERE active = TRUE")
+        )
 
-    cursor.execute("SELECT * FROM subscribers WHERE active=1")
-
-    data = cursor.fetchall()
-
-    conn.close()
-
-    return data
+        return result.fetchall()
