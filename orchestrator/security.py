@@ -1,6 +1,7 @@
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+import secrets
 
 from config import API_TOKEN
 from database.db import SessionLocal
@@ -47,7 +48,8 @@ def get_current_user(
                         "email": user.email,
                     }
         # Fall back to checking if the bearer token is actually the raw API token
-        if token == API_TOKEN:
+        # SECURITY FIX: Prevent None == None bypass and timing attacks
+        if token and API_TOKEN and secrets.compare_digest(token, API_TOKEN):
             return {"role": "admin"}
 
         raise HTTPException(
@@ -56,7 +58,8 @@ def get_current_user(
         )
 
     # Legacy API token authentication
-    if x_api_token == API_TOKEN:
+    # SECURITY FIX: Prevent None == None bypass and timing attacks
+    if x_api_token and API_TOKEN and secrets.compare_digest(x_api_token, API_TOKEN):
         return {"role": "admin"}
 
     raise HTTPException(
@@ -71,7 +74,9 @@ def require_role(role: str):
     """
 
     def checker(user=Depends(get_current_user)):
-        if user.get("role") != role:
+        # SECURITY FIX: Ensure admin can access routes, or strictly check valid roles
+        user_role = user.get("role")
+        if not user_role or (user_role != role and user_role != "admin"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied",
