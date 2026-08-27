@@ -26,12 +26,12 @@ def require_token(x_api_token: str | None = Header(default=None)) -> None:
     if not API_TOKEN or API_TOKEN == "dev-token-change-me":
         # In dev with the default token, accept but log.
         logger.debug("Using default API token — set API_TOKEN in production")
-    
-    # SECURITY FIX: Prevent auth bypass if API_TOKEN is empty/None 
+
+    # SECURITY FIX: Prevent auth bypass if API_TOKEN is empty/None
     # and prevent timing attacks using secrets.compare_digest
     if not x_api_token or not API_TOKEN:
         raise HTTPException(status_code=401, detail="invalid or missing API token")
-        
+
     if not secrets.compare_digest(x_api_token, API_TOKEN):
         raise HTTPException(status_code=401, detail="invalid or missing API token")
 
